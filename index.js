@@ -58,38 +58,176 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3. Simulated Live Stock Ticker
+    // 3. Live Stock Ticker with Real-Time API Data
     const tickerItems = document.querySelectorAll('.ticker-item');
     let activeChartKey = 'nifty'; // Track the active chart tab
-    
+
+    // Ticker mapping to Yahoo Finance symbols
+    const TICKER_MAP = {
+        'NIFTY 50': '^NSEI',
+        'SENSEX': '^BSESN',
+        'BANK NIFTY': '^NSEBANK',
+        'RELIANCE': 'RELIANCE.NS',
+        'TCS': 'TCS.NS',
+        'HDFC BANK': 'HDFCBANK.NS'
+    };
+
+    // Default/fallback prices (anchors) matched to HTML initial state
+    let realTimeStockData = {
+        '^NSEI': { price: 24610.25, changePercent: 1.15, previousClose: 24330.45, closeHistory: [22800, 22910, 22850, 23010, 23150, 23090, 23200, 23410, 23350, 23500, 23550, 23480, 23620, 23700, 23650, 23800, 23880, 23750, 23900, 24020, 23950, 24100, 24200, 24150, 24300, 24350, 24280, 24450, 24530, 24610], loaded: false },
+        '^BSESN': { price: 80684.10, changePercent: 0.95, previousClose: 79924.81, loaded: false },
+        '^NSEBANK': { price: 55120.45, changePercent: 1.42, previousClose: 54348.70, closeHistory: [49800, 50120, 49950, 50300, 50700, 50550, 50900, 51340, 51100, 51600, 51800, 51500, 52100, 52400, 52200, 52650, 52800, 52450, 52900, 53250, 53050, 53500, 53900, 53600, 54100, 54300, 54050, 54500, 54800, 55120], loaded: false },
+        'RELIANCE.NS': { price: 3290.15, changePercent: -0.34, previousClose: 3301.37, closeHistory: [2850, 2870, 2860, 2890, 2920, 2910, 2940, 2975, 2960, 2990, 3010, 2995, 3030, 3050, 3040, 3070, 3090, 3075, 3110, 3140, 3125, 3160, 3185, 3170, 3210, 3230, 3215, 3250, 3275, 3290], loaded: false },
+        'TCS.NS': { price: 3892.40, changePercent: 0.68, previousClose: 3866.11, loaded: false },
+        'HDFCBANK.NS': { price: 1612.90, changePercent: -0.12, previousClose: 1614.84, loaded: false }
+    };
+
+    // Update Chart.js datasets when API returns data
+    function updateChartDatasetsFromAPI() {
+        const symbolNifty = TICKER_MAP['NIFTY 50'];
+        const symbolBankNifty = TICKER_MAP['BANK NIFTY'];
+        const symbolReliance = TICKER_MAP['RELIANCE'];
+
+        if (realTimeStockData[symbolNifty]?.loaded && realTimeStockData[symbolNifty].closeHistory) {
+            chartDatasets.nifty.data = realTimeStockData[symbolNifty].closeHistory;
+        }
+        if (realTimeStockData[symbolBankNifty]?.loaded && realTimeStockData[symbolBankNifty].closeHistory) {
+            chartDatasets.banknifty.data = realTimeStockData[symbolBankNifty].closeHistory;
+        }
+        if (realTimeStockData[symbolReliance]?.loaded && realTimeStockData[symbolReliance].closeHistory) {
+            chartDatasets.reliance.data = realTimeStockData[symbolReliance].closeHistory;
+        }
+    }
+
+    // Helper to update Nifty 50 Hero Widget
+    function updateHeroWidget() {
+        const niftyData = realTimeStockData['^NSEI'];
+        if (!niftyData) return;
+
+        // Find NIFTY 50 ticker item to get simulated/actual price
+        const tickerItemsList = document.querySelectorAll('.ticker-item');
+        let niftyPrice = niftyData.price;
+        let niftyChangeText = '';
+
+        for (let item of tickerItemsList) {
+            const nameEl = item.querySelector('.name');
+            if (nameEl && nameEl.textContent.trim().toUpperCase() === 'NIFTY 50') {
+                const priceEl = item.querySelector('.price');
+                const changeEl = item.querySelector('.change');
+                if (priceEl && changeEl) {
+                    niftyPrice = parseFloat(priceEl.textContent.replace(/,/g, ''));
+                    niftyChangeText = changeEl.textContent;
+                }
+                break;
+            }
+        }
+
+        const heroPriceEl = document.getElementById('heroNiftyPrice');
+        const heroChangeEl = document.getElementById('heroNiftyChange');
+
+        if (heroPriceEl) {
+            heroPriceEl.textContent = niftyPrice.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        if (heroChangeEl) {
+            const absChange = niftyPrice - niftyData.previousClose;
+            const absSign = absChange >= 0 ? '+' : '';
+            
+            if (absChange >= 0) {
+                heroChangeEl.className = 'metric-change up';
+                heroChangeEl.innerHTML = `<i class="fa-solid fa-arrow-trend-up"></i> ${absSign}${absChange.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${niftyChangeText})`;
+            } else {
+                heroChangeEl.className = 'metric-change down';
+                heroChangeEl.innerHTML = `<i class="fa-solid fa-arrow-trend-down"></i> ${absChange.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${niftyChangeText})`;
+            }
+        }
+    }
+
+    // Fetch real-time prices & charts for all symbols
+    async function fetchRealTimePrices() {
+        const symbols = Object.values(TICKER_MAP);
+        let dataUpdated = false;
+
+        for (const symbol of symbols) {
+            try {
+                // Fetch past 30 days daily intervals to get 30d history and current price
+                const response = await fetch(`https://corsproxy.io/?https%3A%2F%2Fquery1.finance.yahoo.com%2Fv8%2Ffinance%2Fchart%2F${encodeURIComponent(symbol)}%3Frange%3D30d%26interval%3D1d`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                const result = data.chart?.result?.[0];
+                if (!result) continue;
+
+                const meta = result.meta;
+                const currentPrice = meta.regularMarketPrice;
+                const previousClose = meta.chartPreviousClose || meta.previousClose;
+                
+                if (currentPrice === null || previousClose === null) continue;
+
+                const change = currentPrice - previousClose;
+                const changePercent = (change / previousClose) * 100;
+
+                // Historical closes
+                const closePrices = result.indicators?.quote?.[0]?.close || [];
+                const validCloses = closePrices.filter(v => v !== null && v !== undefined);
+
+                realTimeStockData[symbol] = {
+                    price: currentPrice,
+                    changePercent: changePercent,
+                    previousClose: previousClose,
+                    closeHistory: validCloses.length > 0 ? validCloses : realTimeStockData[symbol].closeHistory,
+                    loaded: true
+                };
+                dataUpdated = true;
+            } catch (error) {
+                console.error(`Failed to fetch real-time data for ${symbol}:`, error);
+            }
+        }
+
+        if (dataUpdated) {
+            updateChartDatasetsFromAPI();
+            
+            // Re-render chart with new historical values
+            if (typeof initChart === 'function') {
+                initChart(activeChartKey);
+            }
+            updateHeroWidget();
+        }
+    }
+
+    // Micro-tick animation simulation (every 2.5 seconds)
     function simulateTickerUpdates() {
         tickerItems.forEach(item => {
+            const nameEl = item.querySelector('.name');
             const priceEl = item.querySelector('.price');
             const changeEl = item.querySelector('.change');
-            if (!priceEl || !changeEl) return;
+            if (!priceEl || !changeEl || !nameEl) return;
 
-            let currentPrice = parseFloat(priceEl.textContent.replace(/,/g, ''));
-            let currentChange = parseFloat(changeEl.textContent.replace(/[%+]/g, ''));
+            const name = nameEl.textContent.trim().toUpperCase();
+            const symbol = TICKER_MAP[name];
+            if (!symbol || !realTimeStockData[symbol]) return;
 
-            // Determine randomized price change (-0.1% to +0.15%)
-            const percentMove = (Math.random() * 0.25 - 0.1) / 100;
-            const move = currentPrice * percentMove;
-            currentPrice += move;
+            const stockData = realTimeStockData[symbol];
+            
+            // Micro-fluctuation of ±0.03% to give visual active ticker feel
+            const microFluctuationPercent = (Math.random() * 0.06 - 0.03) / 100;
+            const tempPrice = stockData.price * (1 + microFluctuationPercent);
+            const tempChange = tempPrice - stockData.previousClose;
+            const tempChangePercent = (tempChange / stockData.previousClose) * 100;
+            
+            const isUp = tempChangePercent >= 0;
 
-            const changeDirection = move >= 0 ? 1 : -1;
-            currentChange += percentMove * 100 * changeDirection;
-
-            // Apply formatting
-            priceEl.textContent = currentPrice.toLocaleString('en-IN', {
+            priceEl.textContent = tempPrice.toLocaleString('en-IN', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
 
-            const sign = move >= 0 ? '+' : '';
-            changeEl.textContent = `${sign}${currentChange.toFixed(2)}%`;
+            const sign = tempChangePercent >= 0 ? '+' : '';
+            changeEl.textContent = `${sign}${tempChangePercent.toFixed(2)}%`;
 
-            // Adjust up/down class indicators
-            if (move >= 0) {
+            if (isUp) {
                 item.classList.remove('down');
                 item.classList.add('up');
             } else {
@@ -99,54 +237,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Visual flash indicator
             item.style.transition = 'color 0.1s ease';
-            const flashColor = move >= 0 ? 'rgba(0, 200, 83, 0.4)' : 'rgba(255, 61, 87, 0.4)';
+            const flashColor = isUp ? 'rgba(0, 200, 83, 0.4)' : 'rgba(255, 61, 87, 0.4)';
             item.style.textShadow = `0 0 8px ${flashColor}`;
             setTimeout(() => {
                 item.style.textShadow = 'none';
             }, 300);
-
-            // Sync with active chart display in real-time if the item name matches active symbol
-            const nameEl = item.querySelector('.name');
-            if (nameEl && typeof activeChartKey !== 'undefined') {
-                const tickerName = nameEl.textContent.trim().toUpperCase();
-                let matches = false;
-                let basePrice = 24331.8;
-                if (activeChartKey === 'nifty' && tickerName === 'NIFTY 50') {
-                    matches = true;
-                    basePrice = 24331.8;
-                } else if (activeChartKey === 'banknifty' && tickerName === 'BANK NIFTY') {
-                    matches = true;
-                    basePrice = 54348.0;
-                } else if (activeChartKey === 'reliance' && tickerName === 'RELIANCE') {
-                    matches = true;
-                    basePrice = 3301.37;
-                }
-
-                if (matches) {
-                    const chartPriceEl = document.getElementById('chartActivePrice');
-                    const chartChangeEl = document.getElementById('chartActiveChange');
-                    if (chartPriceEl) {
-                        chartPriceEl.textContent = priceEl.textContent;
-                    }
-                    if (chartChangeEl) {
-                        const absChange = currentPrice - basePrice;
-                        const absSign = absChange >= 0 ? '+' : '';
-                        chartChangeEl.textContent = `${absSign}${absChange.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${changeEl.textContent})`;
-                        
-                        if (absChange >= 0) {
-                            chartChangeEl.className = 'up';
-                            chartChangeEl.style.color = 'var(--color-primary)';
-                        } else {
-                            chartChangeEl.className = 'down';
-                            chartChangeEl.style.color = 'var(--color-secondary)';
-                        }
-                    }
-                }
-            }
         });
+
+        // Also update headers & hero widget with simulated tick values
+        if (typeof updateChartPriceHeader === 'function') {
+            updateChartPriceHeader(activeChartKey);
+        }
+        updateHeroWidget();
     }
-    // Update every 2.5 seconds
-    setInterval(simulateTickerUpdates, 2500);
+
+    // Fetch initial prices and start the periodic real-time sync
+    fetchRealTimePrices();
+    setInterval(fetchRealTimePrices, 30000); // Sync actual prices every 30 seconds
+    setInterval(simulateTickerUpdates, 2500); // Animate micro-ticks every 2.5 seconds
 
     // 4. Chart.js Dashboard Configuration
     const ctx = document.getElementById('insightsChart');
@@ -249,14 +357,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateChartPriceHeader(key) {
         let tickerTargetName = 'NIFTY 50';
-        let basePrice = 24331.8;
+        let tickerKey = '^NSEI';
         if (key === 'banknifty') {
             tickerTargetName = 'BANK NIFTY';
-            basePrice = 54348.0;
+            tickerKey = '^NSEBANK';
         } else if (key === 'reliance') {
             tickerTargetName = 'RELIANCE';
-            basePrice = 3301.37;
+            tickerKey = 'RELIANCE.NS';
         }
+        
+        const stockData = realTimeStockData[tickerKey];
+        const basePrice = stockData ? stockData.previousClose : (key === 'banknifty' ? 54348.0 : (key === 'reliance' ? 3301.37 : 24331.8));
         
         // Find the first ticker item with this name
         const tickerItems = document.querySelectorAll('.ticker-item');
