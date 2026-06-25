@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Simulated Live Stock Ticker
     const tickerItems = document.querySelectorAll('.ticker-item');
+    let activeChartKey = 'nifty'; // Track the active chart tab
     
     function simulateTickerUpdates() {
         tickerItems.forEach(item => {
@@ -103,6 +104,45 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 item.style.textShadow = 'none';
             }, 300);
+
+            // Sync with active chart display in real-time if the item name matches active symbol
+            const nameEl = item.querySelector('.name');
+            if (nameEl && typeof activeChartKey !== 'undefined') {
+                const tickerName = nameEl.textContent.trim().toUpperCase();
+                let matches = false;
+                let basePrice = 24331.8;
+                if (activeChartKey === 'nifty' && tickerName === 'NIFTY 50') {
+                    matches = true;
+                    basePrice = 24331.8;
+                } else if (activeChartKey === 'banknifty' && tickerName === 'BANK NIFTY') {
+                    matches = true;
+                    basePrice = 54348.0;
+                } else if (activeChartKey === 'reliance' && tickerName === 'RELIANCE') {
+                    matches = true;
+                    basePrice = 3301.37;
+                }
+
+                if (matches) {
+                    const chartPriceEl = document.getElementById('chartActivePrice');
+                    const chartChangeEl = document.getElementById('chartActiveChange');
+                    if (chartPriceEl) {
+                        chartPriceEl.textContent = priceEl.textContent;
+                    }
+                    if (chartChangeEl) {
+                        const absChange = currentPrice - basePrice;
+                        const absSign = absChange >= 0 ? '+' : '';
+                        chartChangeEl.textContent = `${absSign}${absChange.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${changeEl.textContent})`;
+                        
+                        if (absChange >= 0) {
+                            chartChangeEl.className = 'up';
+                            chartChangeEl.style.color = 'var(--color-primary)';
+                        } else {
+                            chartChangeEl.className = 'down';
+                            chartChangeEl.style.color = 'var(--color-secondary)';
+                        }
+                    }
+                }
+            }
         });
     }
     // Update every 2.5 seconds
@@ -133,8 +173,207 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const insightsData = {
+        nifty: [
+            {
+                tag: 'Technical Analysis',
+                title: 'Trading breakouts using key volume profiles at support levels',
+                date: 'Updated 2 hours ago',
+                link: '#consultation'
+            },
+            {
+                tag: 'Market Structure',
+                title: 'Nifty 50 major levels: Trend support line holds at 24,500',
+                date: 'Updated 4 hours ago',
+                link: '#consultation'
+            }
+        ],
+        banknifty: [
+            {
+                tag: 'Market Update',
+                title: 'Weekly Index Outlook: Major supply & demand zones to watch in BankNifty',
+                date: 'Updated Yesterday',
+                link: '#consultation'
+            },
+            {
+                tag: 'Price Action',
+                title: 'Bank Nifty double bottom pattern formation at key support range',
+                date: 'Updated 6 hours ago',
+                link: '#consultation'
+            }
+        ],
+        reliance: [
+            {
+                tag: 'Price Action Study',
+                title: 'RELIANCE: Stock retesting structural support after institutional breakout',
+                date: 'Updated 5 hours ago',
+                link: '#consultation'
+            },
+            {
+                tag: 'Volume Profile',
+                title: 'Volume accumulation patterns around 3,250 level for Reliance Industries',
+                date: 'Updated 1 day ago',
+                link: '#consultation'
+            }
+        ]
+    };
+
+    function updateInsightsList(key) {
+        const insightsList = document.querySelector('.insights-list');
+        if (!insightsList) return;
+        
+        const articles = insightsData[key];
+        if (!articles) return;
+        
+        insightsList.innerHTML = articles.map(art => `
+            <div class="insight-item" style="opacity: 0; transform: translateY(10px); transition: all 0.3s ease;">
+                <div class="insight-meta">
+                    <span class="insight-tag">${art.tag}</span>
+                    <a href="${art.link}" class="insight-title">${art.title}</a>
+                    <span class="insight-date">${art.date}</span>
+                </div>
+            </div>
+        `).join('');
+        
+        // Trigger a tiny animation delay for each item to make it feel alive!
+        setTimeout(() => {
+            const items = insightsList.querySelectorAll('.insight-item');
+            items.forEach((item, index) => {
+                setTimeout(() => {
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        }, 50);
+    }
+
+    function updateChartPriceHeader(key) {
+        let tickerTargetName = 'NIFTY 50';
+        let basePrice = 24331.8;
+        if (key === 'banknifty') {
+            tickerTargetName = 'BANK NIFTY';
+            basePrice = 54348.0;
+        } else if (key === 'reliance') {
+            tickerTargetName = 'RELIANCE';
+            basePrice = 3301.37;
+        }
+        
+        // Find the first ticker item with this name
+        const tickerItems = document.querySelectorAll('.ticker-item');
+        let matchedItem = null;
+        for (let item of tickerItems) {
+            const nameEl = item.querySelector('.name');
+            if (nameEl && nameEl.textContent.trim().toUpperCase() === tickerTargetName) {
+                matchedItem = item;
+                break;
+            }
+        }
+        
+        if (matchedItem) {
+            const priceEl = matchedItem.querySelector('.price');
+            const changeEl = matchedItem.querySelector('.change');
+            const chartPriceEl = document.getElementById('chartActivePrice');
+            const chartChangeEl = document.getElementById('chartActiveChange');
+            
+            if (priceEl && chartPriceEl) {
+                chartPriceEl.textContent = priceEl.textContent;
+            }
+            if (changeEl && chartChangeEl) {
+                const currentPrice = parseFloat(priceEl.textContent.replace(/,/g, ''));
+                const absChange = currentPrice - basePrice;
+                const absSign = absChange >= 0 ? '+' : '';
+                chartChangeEl.textContent = `${absSign}${absChange.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${changeEl.textContent})`;
+                
+                if (absChange >= 0) {
+                    chartChangeEl.className = 'up';
+                    chartChangeEl.style.color = 'var(--color-primary)';
+                } else {
+                    chartChangeEl.className = 'down';
+                    chartChangeEl.style.color = 'var(--color-secondary)';
+                }
+            }
+        }
+    }
+
+    function renderFallbackChart(canvasElement, key) {
+        const dataInfo = chartDatasets[key];
+        const data = dataInfo.data;
+        const max = Math.max(...data);
+        const min = Math.min(...data);
+        const range = max - min;
+        
+        const container = canvasElement.parentElement;
+        if (!container) return;
+        
+        // Keep the canvas hidden but create/update an SVG
+        canvasElement.style.display = 'none';
+        
+        // Find or create fallback SVG element
+        let svg = container.querySelector('.chart-fallback-svg');
+        if (!svg) {
+            svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'chart-fallback-svg');
+            svg.style.width = '100%';
+            svg.style.height = '100%';
+            container.appendChild(svg);
+        }
+        
+        const width = 600;
+        const height = 300;
+        const padding = 30;
+        const points = data.map((val, index) => {
+            const x = padding + (index / (data.length - 1)) * (width - 2 * padding);
+            const y = height - padding - ((val - min) / range) * (height - 2 * padding);
+            return `${x},${y}`;
+        });
+        
+        const pathD = `M ${points.join(' L ')}`;
+        const fillD = `${pathD} L ${width - padding},${height - padding} L ${padding},${height - padding} Z`;
+        
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        svg.innerHTML = `
+            <defs>
+                <linearGradient id="fallbackGlow-${key}" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${dataInfo.borderColor}" stop-opacity="0.25"></stop>
+                    <stop offset="100%" stop-color="${dataInfo.borderColor}" stop-opacity="0"></stop>
+                </linearGradient>
+            </defs>
+            <!-- Grid Lines -->
+            <line x1="${padding}" y1="${padding}" x2="${width - padding}" y2="${padding}" stroke="rgba(255,255,255,0.03)" stroke-width="1" />
+            <line x1="${padding}" y1="${height/2}" x2="${width - padding}" y2="${height/2}" stroke="rgba(255,255,255,0.03)" stroke-width="1" />
+            <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(255,255,255,0.03)" stroke-width="1" />
+            
+            <!-- Area Fill -->
+            <path d="${fillD}" fill="url(#fallbackGlow-${key})"></path>
+            
+            <!-- Line -->
+            <path d="${pathD}" fill="none" stroke="${dataInfo.borderColor}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+            
+            <!-- Labels -->
+            <text x="${padding}" y="${height - 10}" fill="#8B949E" font-size="10" font-family="Inter">Day 1</text>
+            <text x="${width - padding}" y="${height - 10}" fill="#8B949E" font-size="10" font-family="Inter" text-anchor="end">Day 30</text>
+        `;
+    }
+
     function initChart(key = 'nifty') {
         if (!ctx) return;
+        
+        activeChartKey = key; // Update active tracker
+
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            renderFallbackChart(ctx, key);
+            updateChartPriceHeader(key);
+            updateInsightsList(key);
+            return;
+        }
+
+        // Remove fallback SVG if present
+        const fallbackSvg = ctx.parentElement.querySelector('.chart-fallback-svg');
+        if (fallbackSvg) {
+            fallbackSvg.remove();
+        }
+        ctx.style.display = 'block';
         
         if (currentChart) {
             currentChart.destroy();
@@ -221,13 +460,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+
+        updateChartPriceHeader(key);
+        updateInsightsList(key);
     }
 
-    // Initialize Chart on Load
+    // Initialize Chart and Insights on Load
     initChart('nifty');
 
     // Chart Tab Toggles
-    const chartTabs = document.querySelectorAll('.chart-tab');
+    const chartTabs = document.querySelectorAll('.panel-tab');
     chartTabs.forEach(tab => {
         tab.addEventListener('click', () => {
             chartTabs.forEach(t => t.classList.remove('active'));

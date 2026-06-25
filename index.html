@@ -436,8 +436,14 @@
                 <!-- Chart Panel -->
                 <div class="dashboard-panel reveal">
                     <div class="panel-header">
-                        <div class="panel-title">
-                            <i class="fa-solid fa-chart-line" style="color: var(--color-primary);"></i> Technical Watchlist
+                        <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                            <div class="panel-title">
+                                <i class="fa-solid fa-chart-line" style="color: var(--color-primary);"></i> Technical Watchlist
+                            </div>
+                            <div id="chartPriceContainer" style="display: flex; align-items: baseline; gap: 0.8rem; margin-top: 0.3rem;">
+                                <span id="chartActivePrice" style="font-size: 1.6rem; font-weight: 800; color: #FFFFFF; font-family: monospace;">24,610.25</span>
+                                <span id="chartActiveChange" class="up" style="font-size: 0.95rem; font-weight: 700; color: var(--color-primary); font-family: monospace;">+278.45 (+1.15%)</span>
+                            </div>
                         </div>
                         <div class="panel-tabs">
                             <button class="panel-tab active" data-chart="nifty">Nifty 50</button>
